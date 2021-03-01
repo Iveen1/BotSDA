@@ -306,10 +306,10 @@ class Starter():
             except NameError:
                 print(f'{datetime.datetime.today().strftime("%d.%m.%Y %H:%M:%S")}: LongPoll не определён.\nПереподключение через 10 секунд\n')
                 time.sleep(10)
-            # except:
-            #     print(f'{datetime.datetime.today().strftime("%d.%m.%Y %H:%M:%S")}: Проблема с подключением.\nПереподключение через 10 секунд\n')
-            #     time.sleep(10)
-            #     continue
+            except:
+                print(f'{datetime.datetime.today().strftime("%d.%m.%Y %H:%M:%S")}: Проблема с подключением.\nПереподключение через 10 секунд\n')
+                time.sleep(10)
+                continue
 
     def timeCheck(self):
         timeList = ['0900', '1800', '0000']
