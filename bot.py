@@ -3,6 +3,7 @@ import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType
 import warnings
 from db import BotDB, SubsDB
+from config import read_config
 import datetime
 import time
 import requests
@@ -14,7 +15,7 @@ import os
 
 
 ### Token ###
-vk_session = vk_api.VkApi(token=BotDB().getToken())  # Токен
+vk_session = vk_api.VkApi(token=read_config()[0])  # Токен
 #############
 
 ### Bot's Class ###
@@ -23,7 +24,9 @@ class VkBot():
         self.token = token
         self.db = BotDB()
         self.subsDB = SubsDB()
-        print(self.db.SDAusers())
+        self.admins = read_config()[1]
+        print(self.admins)
+        # print(self.db.SDAusers())
 
     def getUserName(self, userId):
         self.vk = vk_session.get_api()
@@ -37,7 +40,7 @@ class VkBot():
         self.userMessageContext[0] = self.userMessageContext[0].lower()
 
         self.db.checkUser(self.userId, reg=True)
-        self.commands = self.Commands(self.token, self.userId)
+        self.commands = self.Commands(self.token, self.userId, self.admins)
 
         if self.commands.commandlist(self.userMessageContext[0].lower()) != None:
             self.commands.executeCommand(self.userMessageContext)
@@ -77,12 +80,14 @@ class VkBot():
                 self.url = self.subsDB.getUrl(self.itemId)
                 self.currentprice = steamPageParser.jsonReceiver(self.itemId)
                 self.lastCheckedPrice = self.subsDB.getPriceAndDate(self.itemId) # Массив с последней ценой и датой занесения её в бд / [1.23, 01.01.21]
-
+                print(self.data)
                 self.percent = calcPercent(self.currentprice, self.lastCheckedPrice)
                 self.subsDB.insertData("allLinks", self.itemId, "price", self.currentprice)
                 self.subsDB.insertData("allLinks", self.itemId, "lastDatePrice", currentTime)
                 self.img = f'imgs/{self.itemId}.png'
+
                 for k in range(len(self.subscriptions[i][1])):
+                    self.userId = self.db.findUserById(self.subscriptions[i][1][k][0])
                     if os.path.isfile(f'imgs/{self.itemId}.png'):
                         a = vk_session.method("photos.getMessagesUploadServer")
                         b = requests.post(a['upload_url'], files={'photo': open(f'imgs/{self.itemId}.png', 'rb')}).json()
@@ -90,10 +95,10 @@ class VkBot():
                         d = "photo{}_{}".format(c["owner_id"], c["id"])
 
                         message = f'⚠{self.itemName}⚠\n Цена на данный момент - {self.currentprice} ({self.percent})\n\n{self.url}\n'
-                        self.userId = self.db.findUserById(self.subscriptions[i][1][k][0])
                         self.token.method('messages.send', {'user_id': int(self.userId[0]), 'message': message, "attachment": d, "random_id": 0})
                     else:
                         message = f'⚠{self.itemName}⚠\n Цена на данный момент - {self.currentprice}\n\n{self.url}\n'
+                        print(self.userId)
                         self.token.method('messages.send', {'user_id': int(self.userId[0]), 'message': message, 'random_id': 0})
 
         if cur == True: # Если пользователь запрашивает инфу
@@ -101,10 +106,9 @@ class VkBot():
             self.id = self.db.checkUser(self.userId)
             self.subscriptions = self.subsDB.receiveUsersById(self.id[0])
             print(self.subscriptions)
-            print(self.id)
+            print('!!!')
             for i in range(len(self.subscriptions)):
-                self.data = self.subscriptions[i] # 1 arg - itemId; 2 arg - fk_userId
-                self.itemId = self.data[0][0] # Id предмета
+                self.itemId = self.subscriptions[i][0] # Id предмета
                 self.itemName = self.subsDB.getItemName(self.itemId) # Название предмета
                 self.url = self.subsDB.getUrl(self.itemId) # URL предмета
                 self.currentprice = steamPageParser.jsonReceiver(self.itemId)
@@ -122,25 +126,16 @@ class VkBot():
                     message = f'⚠{self.itemName}⚠\n Цена на данный момент - {self.currentprice} ({self.percent})\n\n{self.url}\n'
                     self.token.method('messages.send', {'user_id': int(self.userId), 'message': message, 'random_id': 0})
 
-            # self.subs = self.db.subscribers()
-            # url = 'https://steamcommunity.com/market/listings/730/Operation%20Broken%20Fang%20Case'
-            # data = steamPageParser.jsonReceiver(steamPageParser.itemId(url))
-            # message = f'⚠{steamPageParser.itemName(url)}⚠\n Цена на данный момент - {data}\n\n{url}\n'
-            # for i in range(len(self.subs)):
-            #     self.token.method('messages.send', {'user_id': int(self.subs[i][0]), 'message': message, 'random_id': 0})
-
-
-
-
     ### Commands ###
     class Commands():
-        def __init__(self, token, userId):
+        def __init__(self, token, userId, admins):
             self.commands = {'/acc': [1, self.acc], '/help': [0, self.help], '/sub': [1, self.sub], '/unsub': [1, self.unsub], '/mysubs': [0, self.mysubs], '/addsda': [1, self.addsda], '/remsda': [1, self.remsda], '/sdausers': [0, self.sdausers], '/showusers': [0, self.showusers]}
             self.db = BotDB()
             self.subsDB = SubsDB()
             self.token = token
             self.userId = userId
             self.Main = Main()
+            self.admins = admins
 
 
         def commandlist(self, arg):
@@ -174,38 +169,41 @@ class VkBot():
 
 
         def addsda(self, arg):
-            if self.userId == 277809275:
-                if arg[1].isdigit():
-                    status = self.db.addsda(arg[1])
-                    if status == True:
-                        self._send(f"Пользователь с ID {arg[1]} успешно добавлен в базу SDA и теперь может использовать аккаунты.")
-                    elif status == 'Already':
-                        self._send(f"Пользователь с ID {arg[1]} уже в БД.")
+            if len(arg) <= 1: self._send('Введите аргумент')
+            else:
+                if self.userId in self.admins:
+                    if arg[1].isdigit():
+                        status = self.db.addsda(arg[1])
+                        if status == True:
+                            self._send(f"Пользователь с ID {arg[1]} успешно добавлен в базу SDA и теперь может использовать аккаунты.")
+                        elif status == 'Already':
+                            self._send(f"Пользователь с ID {arg[1]} уже в БД.")
+                        else:
+                            self._send("Пользователя нет в БД пользователей.")
                     else:
-                        self._send("Пользователя нет в БД пользователей.")
-                else:
-                    self._send("Введите цифровой ID")
-            else: self._send("Нет прав")
+                        self._send("Введите цифровой ID")
+                else: self._send("Нет прав")
 
 
         def remsda(self, arg):
-            if self.userId == 277809275:
-                if arg[1].isdigit():
-                    status = self.db.remsda(arg[1])
-                    print(status)
-                    if status == True:
-                        self._send(f"Пользователь с ID {arg[1]} удалён из базы SDA.")
-                    elif status == 'Already':
-                        self._send(f"Пользователь с ID {arg[1]} уже удалён из БД.")
+            if len(arg) <= 1: self._send('Введите аргумент')
+            else:
+                if self.userId in self.admins:
+                    if arg[1].isdigit():
+                        status = self.db.remsda(arg[1])
+                        if status == True:
+                            self._send(f"Пользователь с ID {arg[1]} удалён из базы SDA.")
+                        elif status == 'Already':
+                            self._send(f"Пользователь с ID {arg[1]} уже удалён из БД.")
+                        else:
+                            self._send("Пользователя нет в БД пользователей.")
                     else:
-                        self._send("Пользователя нет в БД пользователей.")
-                else:
-                    self._send("Введите цифровой ID")
-            else: self._send("Нет прав")
+                        self._send("Введите цифровой ID")
+                else: self._send("Нет прав")
 
 
         def sdausers(self):
-            if self.userId == 277809275:
+            if self.userId in self.admins:
                 out = ''
                 self.users = self.db.showsdausers()
                 for i in range(len(self.users)):
@@ -220,7 +218,7 @@ class VkBot():
 
 
         def showusers(self):
-            if self.userId == 277809275:
+            if self.userId in self.admins:
                 out = ''
                 self.users = self.db.showUsers()
                 for i in range(len(self.users)):
@@ -306,13 +304,13 @@ class Starter():
             except NameError:
                 print(f'{datetime.datetime.today().strftime("%d.%m.%Y %H:%M:%S")}: LongPoll не определён.\nПереподключение через 10 секунд\n')
                 time.sleep(10)
-            except:
-                print(f'{datetime.datetime.today().strftime("%d.%m.%Y %H:%M:%S")}: Проблема с подключением.\nПереподключение через 10 секунд\n')
-                time.sleep(10)
-                continue
+            # except:
+            #     print(f'{datetime.datetime.today().strftime("%d.%m.%Y %H:%M:%S")}: Проблема с подключением.\nПереподключение через 10 секунд\n')
+            #     time.sleep(10)
+            #     continue
 
     def timeCheck(self):
-        timeList = ['0900', '1800', '0000']
+        timeList = ['0900', '1800', '0000', '1319']
         while True:
             if datetime.datetime.today().strftime("%H%M") in timeList:
                 VkBot(vk_session).subscribeMailing()

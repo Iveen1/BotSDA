@@ -142,24 +142,15 @@ class SubsDB():
         a = self.receiveItemIds()
         self.ids = []
         for i in range(len(a)):
-            self.sql.execute(f"SELECT fk_subscriberId FROM '{a[i][0]}_subs'")
+            self.sql.execute(f"SELECT fk_subscriberId FROM subscribers WHERE fk_allLinks_itemId = {a[i][0]}")
             self.dict = [a[i], self.sql.fetchall()]
             self.ids.append(self.dict)
         return self.ids
 
 
     def receiveUsersById(self, userId):
-        a = self.receiveItemIds()
-        self.ids = []
-        for i in range(len(a)):
-            self.sql.execute(f"SELECT fk_subscriberId FROM '{a[i][0]}_subs' WHERE fk_subscriberId = '{userId}'")
-            self.selected_sub = self.sql.fetchall()
-            if self.selected_sub != []:
-                self.dict = [a[i], self.selected_sub]
-                self.ids.append(self.dict)
-            else:
-                continue
-        return self.ids
+        self.sql.execute(f"SELECT fk_allLinks_itemId FROM subscribers WHERE fk_subscriberId = '{userId}'")
+        return self.sql.fetchall()
 
 
     def getUrl(self, itemId):
@@ -183,26 +174,17 @@ class SubsDB():
         if self.itemId == 'Error' or self.itemName == 'Error':
             return "Wrong usage"
         if self.userId != None:
-            self.sql.execute(f"""CREATE TABLE IF NOT EXISTS '{self.itemId}_subs' (
-                                    id INTEGER PRIMARY KEY ON CONFLICT REPLACE AUTOINCREMENT,
-                                    fk_subscriberId NOT NULL);""")
-            self.db.commit()
-
-            if not os.path.isfile(f'imgs/{self.itemId}.png'):
-                steamPageParser.getImgUrl(arg, str(self.itemId))
-
             self.sql.execute(f"SELECT itemId FROM allLinks WHERE itemId = '{self.itemId}'")
             check = self.sql.fetchone()
-            print(check)
             if check == None:
                 self.sql.execute(f"INSERT INTO allLinks(itemName, itemId, itemLink) VALUES(?, ?, ?)", (self.itemName, self.itemId, arg))
                 self.db.commit()
+                steamPageParser.getImgUrl(arg, f'{self.itemId}.png')
 
-            self.sql.execute(f"SELECT fk_subscriberId FROM '{self.itemId}_subs' WHERE fk_subscriberId = '{self.userId[0]}'")
+            self.sql.execute(f"SELECT fk_subscriberId FROM subscribers WHERE fk_subscriberId = '{self.userId[0]}' AND fk_allLinks_itemId = {self.itemId}")
             check = self.sql.fetchone()
-            print(check)
             if check == None:
-                self.sql.execute(f"INSERT INTO '{self.itemId}_subs' (fk_subscriberId) VALUES ('{self.userId[0]}')")
+                self.sql.execute(f"INSERT INTO subscribers(fk_allLinks_itemId, fk_subscriberId) VALUES (?, ?)", (self.itemId, self.userId[0]))
                 self.db.commit()
                 return True
             return False
@@ -214,15 +196,13 @@ class SubsDB():
         self.userId = BotDB().checkUser(login)
         self.itemId = steamPageParser.itemId(arg)
         self.itemName = steamPageParser.itemName(arg)
-        print(self.userId)
         if self.itemId == 'Error' or self.itemName == 'Error':
             return "Wrong usage"
         if self.userId != None:
-            self.sql.execute(f"SELECT * FROM '{self.itemId}_subs' WHERE fk_subscriberId = '{self.userId[0]}'")
+            self.sql.execute(f"SELECT * FROM subscribers WHERE fk_subscriberId = '{self.userId[0]}' AND fk_allLinks_itemId = '{self.itemId}'")
             check = self.sql.fetchone()
-            print(check)
             if check != None:
-                self.sql.execute(f"DELETE FROM '{self.itemId}_subs' WHERE fk_subscriberId = '{self.userId[0]}'")
+                self.sql.execute(f"DELETE FROM subscribers WHERE fk_subscriberId = {self.userId[0]} AND fk_allLinks_itemId = '{self.itemId}'")
                 self.db.commit()
                 return True
             return False
@@ -236,7 +216,6 @@ class SubsDB():
         self.sql.execute(f"SELECT lastDatePrice from allLinks WHERE itemId = '{itemId}'")
         self.lastDatePrice = self.sql.fetchone()
         return [self.price, self.lastDatePrice]
-
 # test = SubsDB()
 # url = 'https://steamcommunity.com/market/listings/570/Commodore%27s%20Sash'
 # print(test.subscribe(277809275, url))
@@ -259,7 +238,7 @@ class SubsDB():
 '''    def findAccount(self, login: str):
         self.sql.execute(f"SELECT * FROM accounts WHERE login = '{login}'")
         return self.sql.fetchone()
-'''
+        '''
 
 # test = BotDB()
 # print(test.findAccount('steafar1'))
