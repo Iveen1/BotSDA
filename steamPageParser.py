@@ -52,11 +52,14 @@ def getImgUrl(url: str, filename: str):
         itemImgUrl = str(i.select('img')[0])
         pattern = '''https://.*\"'''
         url = re.findall(f"{pattern}", itemImgUrl)[0][:-1]
-    img = urllib.request.urlopen(url).read()
-    out = open(f"imgs/{filename}.png", "wb")
-    out.write(img)
-    out.close()
+
+    with open(f'imgs\{filename}', 'wb') as handle:
+        response = requests.get(url, stream=True)
+        for block in response.iter_content(1024):
+            if not block:
+                break
+            handle.write(block)
 
 #print(jsonReceiver(itemId('https://steamcommunity.com/market/listings/730/Operation%20Broken%20Fang%20Case')))
 #print(itemId('https://www.google.com/search?q=dgfdfg&source=lnms&tbm=isch&sa=X&ved=2ahUKEwjR28CRg_zuAhVj_SoKHYdHAwIQ_AUoAXoECA8QAw&biw=1920&bih=937'))
-#getImgUrl('https://steamcommunity.com/market/listings/730/Operation%20Broken%20Fang%20Case', '1')
+#getImgUrl('https://steamcommunity.com/market/listings/730/Operation%20Broken%20Fang%20Case', '1.jpg')
