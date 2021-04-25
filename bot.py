@@ -85,7 +85,7 @@ class VkBot():
                 self.subsDB.insertData("allLinks", self.itemId, "price", self.currentprice)
                 self.subsDB.insertData("allLinks", self.itemId, "lastDatePrice", currentTime)
                 self.img = f'imgs/{self.itemId}.png'
-
+                self.subsDB.priceHistory(self.itemName, self.itemId, self.currentprice, currentTime) # запись в историю цен
                 for k in range(len(self.subscriptions[i][1])):
                     self.userId = self.db.findUserById(self.subscriptions[i][1][k][0])
                     if os.path.isfile(f'imgs/{self.itemId}.png'):
@@ -115,6 +115,7 @@ class VkBot():
                 self.lastCheckedPrice = self.subsDB.getPriceAndDate(self.itemId)  # Массив с последней ценой и датой занесения её в бд / [1.23, 01.01.21]\
                 self.percent = calcPercent(self.currentprice, self.lastCheckedPrice)
                 self.img = f'imgs/{self.itemId}.png'
+                self.subsDB.priceHistory(self.itemName, self.itemId, self.currentprice, currentTime) # запись в историю цен
                 if os.path.isfile(f'imgs/{self.itemId}.png'):
                     a = vk_session.method("photos.getMessagesUploadServer")
                     b = requests.post(a['upload_url'], files={'photo': open(f'imgs/{self.itemId}.png', 'rb')}).json()
