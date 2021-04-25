@@ -156,7 +156,7 @@ class VkBot():
                 self.encorrectSyntax('acc')
                 return
             if self.db.findAccount(self.login) != None:
-                if self.db.checkSDA(self.userId) == True:
+                if self.db.checkSDA(self.userId) == True or self.userId in self.admins:
                     self.data = self.db.findAccount(self.login)
                     a = '\n'
                     self._send(f"⚠Данные аккаунта⚠\n Логин: {self.data[1]}\n Пароль: {self.data[2].replace(f'{a}', '')}\n 2FA: {self.Main.executeSDA(self.login)}\n\n❓Инфо❓\nПоследний пользователь: {self.data[4]}, {self.data[5]}")
