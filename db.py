@@ -216,6 +216,11 @@ class SubsDB():
         self.sql.execute(f"SELECT lastDatePrice from allLinks WHERE itemId = '{itemId}'")
         self.lastDatePrice = self.sql.fetchone()
         return [self.price, self.lastDatePrice]
+
+    def priceHistory(self, itemName, itemId, price, date):
+        self.sql.execute(f"INSERT INTO priceHistory ('itemName', 'itemId_fk', 'price', 'date') VALUES ('{itemName}', '{itemId}', '{price}', '{date}')")
+        self.db.commit()
+
 # test = SubsDB()
 # url = 'https://steamcommunity.com/market/listings/570/Commodore%27s%20Sash'
 # print(test.subscribe(277809275, url))
